@@ -83,10 +83,15 @@ adapter.on('stateChange', function (id, state) {
             if (obj) {
                 const modelId = obj.common.type;
                 if (!modelId) return;
+                if (adapter.config.disableLed) {
+                    adapter.setState(id, state.val, true);
+                }
                 collectOptions(id.split('.')[2], modelId, options => {
                     publishFromState(deviceId, modelId, stateKey, state, options);
                 });
-                adapter.setState(id, state.val, true);
+                if (!adapter.config.disableLed) {
+                   adapter.setState(id, state.val, true);
+                }
             }
         });
     }
@@ -596,26 +601,41 @@ function publishFromState(deviceId, modelId, stateKey, state, options) {
         }
 
         // wait a timeout for write
-        setTimeout(()=>{
-            // adapter.log.info(`1 before publish. ${stateDesc.id} time: ${new Date() - start}`);
-            zbControl.publish(deviceId, message.cid, message.cmd, message.zclData, ep, message.cmdType, ()=>{
-                // adapter.log.info(`5 publish success. ${stateDesc.id} time: ${new Date() - start}`);
+        if (adapter.config.disableLed) {
+            setTimeout(()=>{
+                zbControl.publish(deviceId, message.cid, message.cmd, message.zclData, ep, message.cmdType);
                 // wait a timeout for read
                 adapter.log.debug(`Read timeout for cmd '${message.cmd}' is ${readTimeout}`);
                 setTimeout(()=>{
                     const readMessage = converter.convert(preparedValue, preparedOptions, 'get');
                     if (readMessage) {
                         adapter.log.debug('read message: '+safeJsonStringify(readMessage));
-                        // adapter.log.info(`3 before read publish. time: ${new Date() - start}`);
-                        zbControl.publish(deviceId, readMessage.cid, readMessage.cmd, readMessage.zclData, ep, readMessage.cmdType, ()=>{
-                            // adapter.log.info(`6 read publish success. ${stateDesc.id} time: ${new Date() - start}`);
-                        });
-                        // adapter.log.info(`4 after read publish. time: ${new Date() - start}`);
+                        zbControl.publish(deviceId, readMessage.cid, readMessage.cmd, readMessage.zclData, ep, readMessage.cmdType);
                     }
                 }, readTimeout || 0);
-            });
-            // adapter.log.info(`2 after publish. ${stateDesc.id} time: ${new Date() - start}`);
-        }, changedState.timeout);
+            }, changedState.timeout);            
+        } else {       
+            setTimeout(()=>{
+                // adapter.log.info(`1 before publish. ${stateDesc.id} time: ${new Date() - start}`);
+                zbControl.publish(deviceId, message.cid, message.cmd, message.zclData, ep, message.cmdType, ()=>{
+                    // adapter.log.info(`5 publish success. ${stateDesc.id} time: ${new Date() - start}`);
+                    // wait a timeout for read
+                    adapter.log.debug(`Read timeout for cmd '${message.cmd}' is ${readTimeout}`);
+                    setTimeout(()=>{
+                        const readMessage = converter.convert(preparedValue, preparedOptions, 'get');
+                        if (readMessage) {
+                            adapter.log.debug('read message: '+safeJsonStringify(readMessage));
+                            // adapter.log.info(`3 before read publish. time: ${new Date() - start}`);
+                            zbControl.publish(deviceId, readMessage.cid, readMessage.cmd, readMessage.zclData, ep, readMessage.cmdType, ()=>{
+                                // adapter.log.info(`6 read publish success. ${stateDesc.id} time: ${new Date() - start}`);
+                            });
+                            // adapter.log.info(`4 after read publish. time: ${new Date() - start}`);
+                        }
+                    }, readTimeout || 0);
+                });
+                // adapter.log.info(`2 after publish. ${stateDesc.id} time: ${new Date() - start}`);
+            }, changedState.timeout);
+        }
     });
 }
 
@@ -709,7 +729,11 @@ function collectOptions(devId, modelId, callback) {
         callback();
         return;
     }
-    const states = stateModel.states.filter((statedesc) => statedesc.isOption || statedesc.inOptions);
+    if (adapter.config.disableLed) {
+        const states = stateModel.states.filter((statedesc) => statedesc.isOption);
+    } else {
+        const states = stateModel.states.filter((statedesc) => statedesc.isOption || statedesc.inOptions);
+    }
     if (!states) {
         callback();
         return;
