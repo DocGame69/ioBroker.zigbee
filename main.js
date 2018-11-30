@@ -566,7 +566,7 @@ function publishFromState(deviceId, modelId, stateKey, state, options) {
 
     if (stateModel.linkedStates) {
         stateModel.linkedStates.forEach((linkedFunct) => {
-            const res = linkedFunct(stateDesc, value, options);
+            const res = linkedFunct(stateDesc, value, options, adapter.config.disableQueue);
             if (res) {
                 stateList = stateList.concat(res);
             }
