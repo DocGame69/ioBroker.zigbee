@@ -644,8 +644,6 @@ function publishFromState(deviceId, modelId, stateKey, state, options) {
     if (adapter.config.disableQueue) {
       adapter.setState(state.id, state.val, true);
       
-      adapter.log.info('konstane1' + safeJsonStringify(published));
-      
       published.forEach((p) => {
         let counter = 0;
         let secondsToMonitor = 1;
@@ -655,22 +653,7 @@ function publishFromState(deviceId, modelId, stateKey, state, options) {
             // Note that: transtime 10 = 0.1 seconds, 100 = 1 seconds, etc.
             secondsToMonitor = (p.message.zclData.transtime / 10) + 1;
         }
-        adapter.log.debug(`Waiting for '${secondsToMonitor}' sec`);
-
-        const timer = setInterval(() => {
-            counter++;
-        
-            // Doing a 'read' will result in the device sending a zigbee message with the current attribute value.
-            // which will be handled by this.handleZigbeeMessage.
-              p.converter.attr.forEach((attribute) => {
-                  zbControl.read(deviceId, p.message.cid, attribute, p.ep, () => null);
-              });
-
-            if (counter >= secondsToMonitor) {
-                adapter.log.debug(`Finished waiting`);
-                clearTimeout(timer);
-            }
-        }, 1000);
+        adapter.log.debug(`Waiting for '${secondsToMonitor}' sec`);        
       });
     }
 }
